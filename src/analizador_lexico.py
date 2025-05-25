@@ -1,10 +1,38 @@
+"""
+Analizador Léxico para el lenguaje Kotlin.
+Este módulo implementa un analizador léxico que reconoce tokens del lenguaje Kotlin
+utilizando Autómatas Finitos Deterministas (AFD) y No Deterministas (AFND).
+"""
+
 from .token import Token
 from .afnd import AFND
 
 class AnalizadorLexico:
+    """
+    Clase principal del analizador léxico para Kotlin.
+    
+    Esta clase implementa un analizador léxico completo que puede:
+    - Reconocer identificadores válidos (letras, dígitos y guiones bajos)
+    - Identificar palabras reservadas del lenguaje
+    - Procesar números (enteros y decimales)
+    - Manejar operadores aritméticos y lógicos
+    - Reconocer delimitadores
+    - Procesar cadenas de texto
+    - Manejar comentarios de línea (//) y de bloque (/* */)
+    
+    El analizador utiliza AFNDs convertidos a AFDs para el reconocimiento
+    de patrones complejos como identificadores y números.
+    """
+    
     def __init__(self):
         """
         Inicializa el analizador léxico con sus conjuntos de caracteres y palabras reservadas.
+        
+        Define:
+        - Conjunto de palabras reservadas de Kotlin
+        - Conjuntos de caracteres válidos (letras, dígitos, operadores, delimitadores)
+        - Estado inicial del analizador (posición, línea, columna)
+        - Inicializa los AFNDs para identificadores y números
         """
         # Conjunto de palabras reservadas
         self.palabras_reservadas = {'fun', 'val', 'var', 'if', 'else', 'when', 'Int', 'Double', 'String', 'return'}
@@ -27,7 +55,13 @@ class AnalizadorLexico:
 
     def _inicializar_afnds(self):
         """
-        Inicializa los AFNDs para los diferentes patrones léxicos
+        Inicializa los Autómatas Finitos No Deterministas (AFND) para los patrones léxicos.
+        
+        Crea y configura:
+        - AFND para identificadores: reconoce patrones (letra|_)(letra|digito|_)*
+        - AFND para números: reconoce patrones digito+(.digito+)?
+        
+        Los AFNDs son convertidos a AFDs para su uso en el análisis.
         """
         # AFND para identificadores
         self.afnd_identificador = AFND()
@@ -43,8 +77,16 @@ class AnalizadorLexico:
 
     def _construir_afnd_identificador(self):
         """
-        Construye el AFND para identificadores
-        Patrón: (letra|_)(letra|digito|_)*
+        Construye el AFND para reconocer identificadores válidos en Kotlin.
+        
+        Patrón reconocido: (letra|_)(letra|digito|_)*
+        Estados:
+        - q0: Estado inicial
+        - q1: Estado final (identificador válido)
+        
+        Transiciones:
+        - De q0 a q1: letras y guión bajo
+        - De q1 a q1: letras, dígitos y guión bajo
         """
         self.afnd_identificador.establecer_estado_inicial('q0')
         self.afnd_identificador.agregar_estado_final('q1')
@@ -63,8 +105,19 @@ class AnalizadorLexico:
     
     def _construir_afnd_numero(self):
         """
-        Construye el AFND para números
-        Patrón: digito+ ('.' digito+)?
+        Construye el AFND para reconocer números (enteros y decimales).
+        
+        Patrón reconocido: digito+(.digito+)?
+        Estados:
+        - q0: Estado inicial
+        - q1: Estado final (número entero)
+        - q2: Estado intermedio (después del punto decimal)
+        - q3: Estado final (número decimal)
+        
+        Transiciones:
+        - De q0 a q1: dígitos (parte entera)
+        - De q1 a q2: punto decimal
+        - De q2 a q3: dígitos (parte decimal)
         """
         self.afnd_numero.establecer_estado_inicial('q0')
         self.afnd_numero.agregar_estado_final('q1')
@@ -85,13 +138,16 @@ class AnalizadorLexico:
 
     def analizar(self, codigo: str) -> list:
         """
-        Analiza el código fuente y retorna una lista de tokens.
+        Analiza el código fuente completo y genera una lista de tokens.
         
         Args:
-            codigo (str): Código fuente a analizar
+            codigo (str): Código fuente en Kotlin a analizar
             
         Returns:
-            list: Lista de tokens encontrados
+            list: Lista de objetos Token encontrados en el código
+            
+        El análisis se realiza token por token hasta procesar todo el código,
+        manteniendo un seguimiento de la posición, línea y columna actual.
         """
         self.codigo = codigo
         self.posicion = 0
@@ -107,6 +163,20 @@ class AnalizadorLexico:
     def _analizar_siguiente_token(self):
         """
         Analiza y extrae el siguiente token del código fuente.
+        
+        Este método es el núcleo del analizador, determina el tipo de token
+        basándose en el carácter actual y delega el análisis al método
+        específico correspondiente.
+        
+        Maneja:
+        - Espacios en blanco y saltos de línea
+        - Comentarios (// y /* */)
+        - Identificadores y palabras reservadas
+        - Números
+        - Operadores
+        - Delimitadores
+        - Cadenas
+        - Caracteres no reconocidos
         """
         char = self.codigo[self.posicion]
         
@@ -153,7 +223,17 @@ class AnalizadorLexico:
 
     def _analizar_identificador(self):
         """
-        Analiza identificadores usando el AFD generado del AFND
+        Analiza identificadores usando el AFD generado del AFND.
+        
+        Proceso:
+        1. Lee caracteres válidos (letras, dígitos, guión bajo)
+        2. Verifica la longitud máxima (10 caracteres)
+        3. Determina si es palabra reservada o identificador
+        4. Genera el token correspondiente
+        
+        Restricciones:
+        - Longitud máxima: 10 caracteres
+        - Debe comenzar con letra o guión bajo
         """
         inicio = self.posicion
         col_inicio = self.columna
@@ -180,7 +260,14 @@ class AnalizadorLexico:
 
     def _analizar_numero(self):
         """
-        Analiza números usando el AFD generado del AFND
+        Analiza números usando el AFD generado del AFND.
+        
+        Reconoce:
+        - Números naturales: secuencia de dígitos
+        - Números reales: parte entera + punto decimal + parte decimal
+        
+        El análisis utiliza el AFD convertido del AFND para números,
+        siguiendo las transiciones según los caracteres encontrados.
         """
         estados_afd, estado_inicial, transiciones, estados_finales = self.afd_numero
         estado_actual = estado_inicial
@@ -209,6 +296,15 @@ class AnalizadorLexico:
     def _analizar_operador(self):
         """
         Implementa el AFD para operadores, incluyendo detección de operadores inválidos.
+        
+        Reconoce:
+        - Operadores simples: +, -, *, /, %, =, <, >, !, &, |
+        - Operadores compuestos: ==, !=, <=, >=, &&, ||, ++, --
+        
+        Detecta errores:
+        - Operadores mal escritos (=< en lugar de <=)
+        - Operadores juntos inválidos (+*, *+, +-, -+)
+        - Operadores no existentes en Kotlin (>>>)
         """
         inicio = self.posicion
         col_inicio = self.columna
@@ -260,6 +356,13 @@ class AnalizadorLexico:
     def _analizar_delimitador(self):
         """
         Implementa el AFD para delimitadores.
+        
+        Reconoce los siguientes delimitadores:
+        - Paréntesis: ( )
+        - Llaves: { }
+        - Coma: ,
+        - Punto y coma: ;
+        - Dos puntos: :
         """
         delim = self.codigo[self.posicion]
         self.tokens.append(Token(delim, 'DELIMITADOR', self.linea, self.columna))
@@ -267,9 +370,21 @@ class AnalizadorLexico:
         self.columna += 1
 
     def _analizar_cadena(self):
+
         """
         Implementa el AFD para cadenas de texto.
+        
+        Características:
+        - Reconoce cadenas delimitadas por comillas dobles
+        - Maneja caracteres escapados = (\)
+        - Detecta cadenas sin cerrar
+        - Maneja saltos de línea dentro de cadenas
+        
+        Errores detectados:
+        - Carácter de escape al final de la cadena
+        - Cadena sin cerrar (falta comilla final)
         """
+
         inicio = self.posicion
         col_inicio = self.columna
         self.posicion += 1  # Saltar la comilla inicial
@@ -303,6 +418,20 @@ class AnalizadorLexico:
     def _analizar_comentario(self):
         """
         Implementa el AFD para comentarios de línea (//) y de bloque (/* */).
+        
+        Tipos de comentarios:
+        1. Comentarios de línea (//):
+           - Consume todo hasta el fin de línea
+           - No requiere cierre explícito
+        
+        2. Comentarios de bloque (/* */):
+           - Puede abarcar múltiples líneas
+           - Requiere cierre explícito con */
+           - Detecta comentarios sin cerrar
+        
+        Manejo de errores:
+        - Detecta y reporta comentarios de bloque sin cerrar
+        - Evita el procesamiento del contenido como tokens en caso de error
         """
         inicio = self.posicion
         col_inicio = self.columna
@@ -358,6 +487,14 @@ class AnalizadorLexico:
     def _error_lexico(self, mensaje: str):
         """
         Maneja errores léxicos encontrados durante el análisis.
+        
+        Args:
+            mensaje (str): Descripción del error encontrado
+        
+        Genera un token de error con:
+        - Mensaje descriptivo del error
+        - Tipo 'ERROR_LEXICO'
+        - Posición exacta (línea y columna) donde ocurrió el error
         """
         self.tokens.append(Token(
             f"ERROR: {mensaje}",
@@ -370,7 +507,18 @@ class AnalizadorLexico:
 
     def probar_afnd(self):
         """
-        Realiza pruebas de los AFND para identificadores y números
+        Realiza pruebas de los AFND para identificadores y números.
+        
+        Pruebas realizadas:
+        1. Para identificadores:
+           - Casos válidos: variable, _test, x1
+           - Casos inválidos: 1variable, @var
+        
+        2. Para números:
+           - Casos válidos: 123, 123.456
+           - Casos inválidos: 12.34.56, .123, 123.
+        
+        Muestra información detallada del AFND y los resultados de cada prueba.
         """
         print("\n=== Pruebas del AFND para Identificadores ===")
         self.afnd_identificador.depurar_afnd()

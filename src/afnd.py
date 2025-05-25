@@ -1,5 +1,31 @@
+"""
+Módulo que implementa un Autómata Finito No Determinista (AFND).
+Este módulo proporciona la funcionalidad necesaria para crear, manipular
+y convertir AFNDs a AFDs para el análisis léxico.
+"""
+
 class AFND:
+    """
+    Clase que implementa un Autómata Finito No Determinista (AFND).
+    
+    Un AFND es una estructura que permite reconocer patrones en texto mediante:
+    - Múltiples estados posibles simultáneos
+    - Transiciones con el mismo símbolo a diferentes estados
+    - Transiciones epsilon (sin consumir símbolo)
+    """
+    
     def __init__(self):
+        """
+        Inicializa un nuevo AFND vacío.
+        
+        Inicializa las estructuras de datos necesarias:
+        - estados: conjunto de estados del autómata
+        - alfabeto: conjunto de símbolos válidos
+        - transiciones: diccionario de transiciones
+        - estado_inicial: estado de inicio
+        - estados_finales: conjunto de estados de aceptación
+        - epsilon: símbolo para transiciones sin consumo
+        """
         self.estados = set()
         self.alfabeto = set()
         self.transiciones = {}
@@ -8,21 +34,53 @@ class AFND:
         self.epsilon = 'ε'
     
     def agregar_estado(self, estado):
+        """
+        Agrega un nuevo estado al conjunto de estados del autómata.
+        
+        Args:
+            estado: Identificador del estado a agregar
+        """
         self.estados.add(estado)
     
     def agregar_simbolo(self, simbolo):
+        """
+        Agrega un símbolo al alfabeto del autómata.
+        
+        Args:
+            simbolo: Símbolo a agregar (no se agrega si es epsilon)
+        """
         if simbolo != self.epsilon:
             self.alfabeto.add(simbolo)
     
     def establecer_estado_inicial(self, estado):
+        """
+        Define el estado inicial del autómata.
+        
+        Args:
+            estado: Identificador del estado inicial
+        """
         self.estado_inicial = estado
         self.estados.add(estado)
     
     def agregar_estado_final(self, estado):
+        """
+        Agrega un estado al conjunto de estados finales.
+        
+        Args:
+            estado: Identificador del estado a marcar como final
+        """
         self.estados_finales.add(estado)
         self.estados.add(estado)
     
     def agregar_transicion(self, estado_origen, simbolo, estado_destino):
+        """
+        Agrega una transición al autómata.
+        
+        Args:
+            estado_origen: Estado desde donde parte la transición
+            simbolo: Símbolo que activa la transición
+            estado_destino: Estado al que se llega con la transición
+        """
         # Agregar el símbolo al alfabeto
         self.agregar_simbolo(simbolo)
         
@@ -36,6 +94,15 @@ class AFND:
         self.transiciones[(estado_origen, simbolo)].add(estado_destino)
     
     def epsilon_clausura(self, estados):
+        """
+        Calcula la clausura epsilon de un conjunto de estados.
+        
+        Args:
+            estados: Conjunto de estados iniciales o estado individual
+            
+        Returns:
+            set: Conjunto de estados alcanzables mediante transiciones epsilon
+        """
         if isinstance(estados, (str, int)):
             estados = {estados}
         clausura = set(estados)
@@ -51,6 +118,16 @@ class AFND:
         return clausura
     
     def mover(self, estados, simbolo):
+        """
+        Calcula el conjunto de estados alcanzables mediante un símbolo.
+        
+        Args:
+            estados: Conjunto de estados desde donde partir
+            simbolo: Símbolo a consumir
+            
+        Returns:
+            set: Estados alcanzables consumiendo el símbolo dado
+        """
         if isinstance(estados, (str, int)):
             estados = {estados}
         resultado = set()
@@ -60,6 +137,17 @@ class AFND:
         return resultado
     
     def convertir_a_afd(self):
+        """
+        Convierte el AFND a un Autómata Finito Determinista (AFD).
+        
+        Returns:
+            tuple: (estados_afd, estado_inicial_afd, transiciones_afd, estados_finales_afd)
+            
+        El proceso utiliza el algoritmo de construcción por subconjuntos:
+        1. Obtener estado inicial del AFD mediante clausura epsilon
+        2. Procesar estados nuevos y sus transiciones
+        3. Identificar estados finales del AFD
+        """
         # Obtener el estado inicial del AFD
         estado_inicial_afd = frozenset(self.epsilon_clausura(self.estado_inicial))
         estados_afd = {estado_inicial_afd}
@@ -95,11 +183,19 @@ class AFND:
                     if any(estado in self.estados_finales for estado in siguiente):
                         estados_finales_afd.add(siguiente)
         
-        return estados_afd, estado_inicial_afd, transiciones_afd, estados_finales_afd 
+        return estados_afd, estado_inicial_afd, transiciones_afd, estados_finales_afd
 
     def depurar_afnd(self):
         """
-        Muestra información detallada sobre el AFND y su conversión a AFD
+        Muestra información detallada sobre el AFND y su conversión a AFD.
+        
+        Imprime:
+        - Estados del AFND
+        - Alfabeto
+        - Estado inicial
+        - Estados finales
+        - Transiciones del AFND
+        - Información del AFD resultante
         """
         print("\n=== Información del AFND ===")
         print(f"Estados: {self.estados}")
@@ -123,7 +219,19 @@ class AFND:
             
     def probar_cadena(self, cadena):
         """
-        Prueba si una cadena es aceptada por el autómata
+        Prueba si una cadena es aceptada por el autómata.
+        
+        Args:
+            cadena: Cadena a evaluar
+            
+        Returns:
+            bool: True si la cadena es aceptada, False en caso contrario
+            
+        Imprime el proceso de evaluación paso a paso, mostrando:
+        - Estado inicial
+        - Transiciones seguidas
+        - Estado final
+        - Resultado de la evaluación
         """
         afd = self.convertir_a_afd()
         estados_afd, estado_inicial_afd, transiciones_afd, estados_finales_afd = afd

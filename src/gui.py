@@ -1,10 +1,32 @@
+"""
+Módulo de interfaz gráfica para el analizador léxico.
+Este módulo implementa una interfaz gráfica de usuario (GUI) que permite
+interactuar con el analizador léxico de manera visual e intuitiva.
+"""
+
 import tkinter as tk
 from tkinter import ttk
 from tkinter import scrolledtext
 from .analizador_lexico import AnalizadorLexico
 
 class AnalizadorLexicoGUI:
+    """
+    Clase que implementa la interfaz gráfica del analizador léxico.
+    
+    Proporciona una ventana con:
+    - Área de texto para ingresar código fuente
+    - Tabla para mostrar los tokens identificados
+    - Botones para analizar el código y probar los autómatas
+    - Visualización clara de errores léxicos
+    """
+    
     def __init__(self, root):
+        """
+        Inicializa la ventana principal y sus componentes.
+        
+        Args:
+            root: Ventana raíz de Tkinter
+        """
         self.root = root
         self.root.title("Analizador Léxico Kotlin")
         self.analizador = AnalizadorLexico()
@@ -17,6 +39,15 @@ class AnalizadorLexicoGUI:
         self._configurar_layout()
 
     def _crear_widgets(self):
+        """
+        Crea todos los widgets de la interfaz.
+        
+        Crea y configura:
+        - Frame principal
+        - Área de texto con scroll
+        - Frame de botones
+        - Tabla de tokens con scrollbars
+        """
         # Frame principal
         self.main_frame = ttk.Frame(self.root, padding="10")
         self.main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -79,6 +110,14 @@ class AnalizadorLexicoGUI:
         )
 
     def _configurar_layout(self):
+        """
+        Configura el layout de la interfaz usando el sistema grid.
+        
+        Organiza:
+        - Posicionamiento de widgets
+        - Configuración de pesos de columnas y filas
+        - Márgenes y espaciado
+        """
         # Configurar el grid
         self.codigo_label.grid(row=0, column=0, sticky=tk.W, pady=(0, 5))
         self.codigo_text.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -105,6 +144,15 @@ class AnalizadorLexicoGUI:
         self.tabla_frame.rowconfigure(0, weight=1)
 
     def _analizar_codigo(self):
+        """
+        Analiza el código ingresado y muestra los tokens en la tabla.
+        
+        Proceso:
+        1. Limpia la tabla de resultados anteriores
+        2. Obtiene el código del área de texto
+        3. Ejecuta el analizador léxico
+        4. Muestra los tokens encontrados en la tabla
+        """
         # Limpiar tabla
         for item in self.tabla.get_children():
             self.tabla.delete(item)
@@ -129,7 +177,14 @@ class AnalizadorLexicoGUI:
 
     def _probar_afnd(self):
         """
-        Ejecuta las pruebas de los AFND y muestra los resultados
+        Ejecuta las pruebas de los AFND y muestra los resultados.
+        
+        Proceso:
+        1. Crea una nueva ventana para los resultados
+        2. Configura un área de texto con scroll
+        3. Redirige la salida estándar al área de texto
+        4. Ejecuta las pruebas del AFND
+        5. Restaura la salida estándar
         """
         # Crear una nueva ventana para mostrar los resultados
         ventana_pruebas = tk.Toplevel(self.root)
@@ -150,14 +205,32 @@ class AnalizadorLexicoGUI:
         stdout_original = sys.stdout
         
         class TextRedirector:
+            """
+            Clase auxiliar para redirigir la salida estándar a un widget de texto.
+            """
             def __init__(self, text_widget):
+                """
+                Inicializa el redireccionador.
+                
+                Args:
+                    text_widget: Widget de texto donde se mostrará la salida
+                """
                 self.text_widget = text_widget
             
             def write(self, str):
+                """
+                Escribe texto en el widget.
+                
+                Args:
+                    str: Texto a escribir
+                """
                 self.text_widget.insert(tk.END, str)
                 self.text_widget.see(tk.END)
             
             def flush(self):
+                """
+                Implementación requerida para el protocolo de flujo de salida.
+                """
                 pass
         
         sys.stdout = TextRedirector(resultados_text)
@@ -170,6 +243,11 @@ class AnalizadorLexicoGUI:
             sys.stdout = stdout_original
 
 def main():
+    """
+    Función principal que inicia la aplicación.
+    
+    Crea la ventana principal y ejecuta el bucle de eventos.
+    """
     root = tk.Tk()
     app = AnalizadorLexicoGUI(root)
     root.mainloop()
