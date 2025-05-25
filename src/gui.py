@@ -31,11 +31,21 @@ class AnalizadorLexicoGUI:
             font=('Courier', 10)
         )
         
+        # Frame para botones
+        self.botones_frame = ttk.Frame(self.main_frame)
+        
         # Botón de análisis
         self.analizar_btn = ttk.Button(
-            self.main_frame,
+            self.botones_frame,
             text="Analizar",
             command=self._analizar_codigo
+        )
+        
+        # Botón para probar AFND
+        self.probar_afnd_btn = ttk.Button(
+            self.botones_frame,
+            text="Probar AFND",
+            command=self._probar_afnd
         )
         
         # Tabla de tokens
@@ -72,7 +82,12 @@ class AnalizadorLexicoGUI:
         # Configurar el grid
         self.codigo_label.grid(row=0, column=0, sticky=tk.W, pady=(0, 5))
         self.codigo_text.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        self.analizar_btn.grid(row=2, column=0, pady=10)
+        
+        # Frame de botones
+        self.botones_frame.grid(row=2, column=0, pady=10)
+        self.analizar_btn.grid(row=0, column=0, padx=5)
+        self.probar_afnd_btn.grid(row=0, column=1, padx=5)
+        
         self.tabla_frame.grid(row=3, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Configurar la tabla y scrollbars
@@ -111,6 +126,48 @@ class AnalizadorLexicoGUI:
                     token_dict['Columna']
                 )
             )
+
+    def _probar_afnd(self):
+        """
+        Ejecuta las pruebas de los AFND y muestra los resultados
+        """
+        # Crear una nueva ventana para mostrar los resultados
+        ventana_pruebas = tk.Toplevel(self.root)
+        ventana_pruebas.title("Resultados de Pruebas AFND")
+        
+        # Área de texto para mostrar resultados
+        resultados_text = scrolledtext.ScrolledText(
+            ventana_pruebas,
+            wrap=tk.WORD,
+            width=80,
+            height=30,
+            font=('Courier', 10)
+        )
+        resultados_text.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        
+        # Redirigir la salida estándar a nuestra área de texto
+        import sys
+        stdout_original = sys.stdout
+        
+        class TextRedirector:
+            def __init__(self, text_widget):
+                self.text_widget = text_widget
+            
+            def write(self, str):
+                self.text_widget.insert(tk.END, str)
+                self.text_widget.see(tk.END)
+            
+            def flush(self):
+                pass
+        
+        sys.stdout = TextRedirector(resultados_text)
+        
+        try:
+            # Ejecutar las pruebas
+            self.analizador.probar_afnd()
+        finally:
+            # Restaurar la salida estándar
+            sys.stdout = stdout_original
 
 def main():
     root = tk.Tk()

@@ -1,4 +1,5 @@
 from .token import Token
+from .afnd import AFND
 
 class AnalizadorLexico:
     def __init__(self):
@@ -6,13 +7,13 @@ class AnalizadorLexico:
         Inicializa el analizador léxico con sus conjuntos de caracteres y palabras reservadas.
         """
         # Conjunto de palabras reservadas
-        self.palabras_reservadas = {'fun', 'val', 'var', 'if', 'else', 'when'}
+        self.palabras_reservadas = {'fun', 'val', 'var', 'if', 'else', 'when', 'Int', 'Double', 'String', 'return'}
         
         # Conjuntos de caracteres
         self.letras = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
         self.digitos = set('0123456789')
         self.operadores = {'+', '-', '*', '/', '%', '=', '<', '>', '!', '&', '|'}
-        self.delimitadores = {'(', ')', '{', '}', ',', ';'}
+        self.delimitadores = {'(', ')', '{', '}', ',', ';', ':'}
         
         # Estado del analizador
         self.posicion = 0
@@ -20,6 +21,67 @@ class AnalizadorLexico:
         self.columna = 1
         self.codigo = ""
         self.tokens = []
+        
+        # Inicializar AFNDs
+        self._inicializar_afnds()
+
+    def _inicializar_afnds(self):
+        """
+        Inicializa los AFNDs para los diferentes patrones léxicos
+        """
+        # AFND para identificadores
+        self.afnd_identificador = AFND()
+        self._construir_afnd_identificador()
+        
+        # AFND para números
+        self.afnd_numero = AFND()
+        self._construir_afnd_numero()
+        
+        # Convertir AFNDs a AFDs para su uso
+        self.afd_identificador = self.afnd_identificador.convertir_a_afd()
+        self.afd_numero = self.afnd_numero.convertir_a_afd()
+
+    def _construir_afnd_identificador(self):
+        """
+        Construye el AFND para identificadores
+        Patrón: (letra|_)(letra|digito|_)*
+        """
+        self.afnd_identificador.establecer_estado_inicial('q0')
+        self.afnd_identificador.agregar_estado_final('q1')
+        
+        # Agregar transiciones para la primera letra o guión bajo
+        for letra in self.letras:
+            self.afnd_identificador.agregar_transicion('q0', letra, 'q1')
+        self.afnd_identificador.agregar_transicion('q0', '_', 'q1')
+        
+        # Agregar transiciones para el resto del identificador
+        for letra in self.letras:
+            self.afnd_identificador.agregar_transicion('q1', letra, 'q1')
+        for digito in self.digitos:
+            self.afnd_identificador.agregar_transicion('q1', digito, 'q1')
+        self.afnd_identificador.agregar_transicion('q1', '_', 'q1')
+    
+    def _construir_afnd_numero(self):
+        """
+        Construye el AFND para números
+        Patrón: digito+ ('.' digito+)?
+        """
+        self.afnd_numero.establecer_estado_inicial('q0')
+        self.afnd_numero.agregar_estado_final('q1')
+        self.afnd_numero.agregar_estado_final('q3')
+        
+        # Parte entera
+        for digito in self.digitos:
+            self.afnd_numero.agregar_transicion('q0', digito, 'q1')
+            self.afnd_numero.agregar_transicion('q1', digito, 'q1')
+        
+        # Punto decimal
+        self.afnd_numero.agregar_transicion('q1', '.', 'q2')
+        
+        # Parte decimal
+        for digito in self.digitos:
+            self.afnd_numero.agregar_transicion('q2', digito, 'q3')
+            self.afnd_numero.agregar_transicion('q3', digito, 'q3')
 
     def analizar(self, codigo: str) -> list:
         """
@@ -59,7 +121,7 @@ class AnalizadorLexico:
             return
         
         # Identificadores y palabras reservadas
-        if char in self.letras:
+        if char in self.letras or char == '_':
             self._analizar_identificador()
         
         # Números
@@ -82,8 +144,11 @@ class AnalizadorLexico:
         elif char == '/' and self.posicion + 1 < len(self.codigo):
             if self.codigo[self.posicion + 1] in ['/', '*']:
                 self._analizar_comentario()
+                return
             else:
                 self._analizar_operador()
+                return
+
         
         # Caracteres no reconocidos
         else:
@@ -91,18 +156,19 @@ class AnalizadorLexico:
 
     def _analizar_identificador(self):
         """
-        Implementa el AFD para identificadores y palabras reservadas.
+        Analiza identificadores usando el AFD generado del AFND
         """
         inicio = self.posicion
         col_inicio = self.columna
         
-        while self.posicion < len(self.codigo) and (
-            self.codigo[self.posicion] in self.letras or 
-            self.codigo[self.posicion] in self.digitos or 
-            self.codigo[self.posicion] == '_'
-        ):
-            self.posicion += 1
-            self.columna += 1
+        # Leer el identificador completo
+        while self.posicion < len(self.codigo):
+            char = self.codigo[self.posicion]
+            if char in self.letras or char in self.digitos or char == '_':
+                self.posicion += 1
+                self.columna += 1
+            else:
+                break
         
         lexema = self.codigo[inicio:self.posicion]
         
@@ -117,31 +183,31 @@ class AnalizadorLexico:
 
     def _analizar_numero(self):
         """
-        Implementa el AFD para números naturales y reales.
+        Analiza números usando el AFD generado del AFND
         """
+        estados_afd, estado_inicial, transiciones, estados_finales = self.afd_numero
+        estado_actual = estado_inicial
         inicio = self.posicion
         col_inicio = self.columna
         es_real = False
         
-        # Estado inicial: dígitos antes del punto
-        while self.posicion < len(self.codigo) and self.codigo[self.posicion] in self.digitos:
-            self.posicion += 1
-            self.columna += 1
-        
-        # Estado: punto decimal
-        if self.posicion < len(self.codigo) and self.codigo[self.posicion] == '.':
-            es_real = True
-            self.posicion += 1
-            self.columna += 1
-            
-            # Estado: dígitos después del punto
-            while self.posicion < len(self.codigo) and self.codigo[self.posicion] in self.digitos:
+        while self.posicion < len(self.codigo):
+            char = self.codigo[self.posicion]
+            if (estado_actual, char) in transiciones:
+                if char == '.':
+                    es_real = True
+                estado_actual = transiciones[(estado_actual, char)]
                 self.posicion += 1
                 self.columna += 1
+            else:
+                break
         
-        lexema = self.codigo[inicio:self.posicion]
-        tipo = 'NUMERO_REAL' if es_real else 'NUMERO_NATURAL'
-        self.tokens.append(Token(lexema, tipo, self.linea, col_inicio))
+        if estado_actual in estados_finales:
+            lexema = self.codigo[inicio:self.posicion]
+            tipo = 'NUMERO_REAL' if es_real else 'NUMERO_NATURAL'
+            self.tokens.append(Token(lexema, tipo, self.linea, col_inicio))
+        else:
+            self._error_lexico("Número inválido")
 
     def _analizar_operador(self):
         """
@@ -210,34 +276,52 @@ class AnalizadorLexico:
 
     def _analizar_comentario(self):
         """
-        Implementa el AFD para comentarios.
+        Implementa el AFD para comentarios de línea (//) y de bloque (/* */).
         """
         inicio = self.posicion
         col_inicio = self.columna
-        
-        if self.codigo[self.posicion + 1] == '/':
+
+        if self.codigo[self.posicion:self.posicion + 2] == '//':
             # Comentario de línea
             self.posicion += 2
+            self.columna += 2
+
             while self.posicion < len(self.codigo) and self.codigo[self.posicion] != '\n':
                 self.posicion += 1
+                self.columna += 1
+
             lexema = self.codigo[inicio:self.posicion]
             self.tokens.append(Token(lexema, 'COMENTARIO_LINEA', self.linea, col_inicio))
-        
-        elif self.codigo[self.posicion + 1] == '*':
+
+        elif self.codigo[self.posicion:self.posicion + 2] == '/*':
             # Comentario de bloque
             self.posicion += 2
+            self.columna += 2
+
             while self.posicion < len(self.codigo) - 1:
-                if self.codigo[self.posicion] == '*' and self.codigo[self.posicion + 1] == '/':
+                if self.codigo[self.posicion] == '\n':
+                    self.linea += 1
+                    self.columna = 1
+                    self.posicion += 1
+                    continue
+
+                if self.codigo[self.posicion:self.posicion + 2] == '*/':
                     self.posicion += 2
+                    self.columna += 2
                     lexema = self.codigo[inicio:self.posicion]
                     self.tokens.append(Token(lexema, 'COMENTARIO_BLOQUE', self.linea, col_inicio))
                     return
-                elif self.codigo[self.posicion] == '\n':
-                    self.linea += 1
-                    self.columna = 1
+
                 self.posicion += 1
-            
+                self.columna += 1
+
+            # Si se termina el archivo sin encontrar cierre
             self._error_lexico("Comentario de bloque sin cerrar")
+
+        else:
+            # No es comentario, probablemente sea operador "/"
+            self._analizar_operador()
+
 
     def _error_lexico(self, mensaje: str):
         """
@@ -250,4 +334,36 @@ class AnalizadorLexico:
             self.columna
         ))
         self.posicion += 1
-        self.columna += 1 
+        self.columna += 1
+
+    def probar_afnd(self):
+        """
+        Realiza pruebas de los AFND para identificadores y números
+        """
+        print("\n=== Pruebas del AFND para Identificadores ===")
+        self.afnd_identificador.depurar_afnd()
+        
+        # Probar casos válidos de identificadores
+        print("\nPruebas de identificadores válidos:")
+        self.afnd_identificador.probar_cadena("variable")
+        self.afnd_identificador.probar_cadena("_test")
+        self.afnd_identificador.probar_cadena("x1")
+        
+        # Probar casos inválidos de identificadores
+        print("\nPruebas de identificadores inválidos:")
+        self.afnd_identificador.probar_cadena("1variable")  # No puede empezar con número
+        self.afnd_identificador.probar_cadena("@var")      # Carácter inválido
+        
+        print("\n=== Pruebas del AFND para Números ===")
+        self.afnd_numero.depurar_afnd()
+        
+        # Probar casos válidos de números
+        print("\nPruebas de números válidos:")
+        self.afnd_numero.probar_cadena("123")
+        self.afnd_numero.probar_cadena("123.456")
+        
+        # Probar casos inválidos de números
+        print("\nPruebas de números inválidos:")
+        self.afnd_numero.probar_cadena("12.34.56")  # Múltiples puntos
+        self.afnd_numero.probar_cadena(".123")      # Punto al inicio
+        self.afnd_numero.probar_cadena("123.")      # Punto al final 
