@@ -120,6 +120,13 @@ class AnalizadorLexico:
             self.posicion += 1
             return
         
+        # Comentarios - Importante: verificar esto antes que operadores
+        if char == '/' and self.posicion + 1 < len(self.codigo):
+            siguiente = self.codigo[self.posicion + 1]
+            if siguiente in ['/', '*']:
+                self._analizar_comentario()
+                return
+        
         # Identificadores y palabras reservadas
         if char in self.letras or char == '_':
             self._analizar_identificador()
@@ -139,13 +146,6 @@ class AnalizadorLexico:
         # Cadenas
         elif char == '"':
             self._analizar_cadena()
-        
-        # Comentarios
-        elif char == '/' and self.posicion + 1 < len(self.codigo):
-            if self.codigo[self.posicion + 1] in ['/', '*']:
-                self._analizar_comentario()
-            else:
-                self._analizar_operador()
         
         # Caracteres no reconocidos
         else:
@@ -306,48 +306,54 @@ class AnalizadorLexico:
         """
         inicio = self.posicion
         col_inicio = self.columna
-
-        if self.codigo[self.posicion:self.posicion + 2] == '//':
-            # Comentario de línea
-            self.posicion += 2
+        
+        # Ya sabemos que tenemos '/' y hay un siguiente carácter
+        siguiente = self.codigo[self.posicion + 1]
+        
+        if siguiente == '/':  # Comentario de línea
+            # Consumir todo hasta el fin de línea
+            self.posicion += 2  # Saltar '//'
             self.columna += 2
-
+            
             while self.posicion < len(self.codigo) and self.codigo[self.posicion] != '\n':
                 self.posicion += 1
                 self.columna += 1
-
+            
             lexema = self.codigo[inicio:self.posicion]
             self.tokens.append(Token(lexema, 'COMENTARIO_LINEA', self.linea, col_inicio))
-
-        elif self.codigo[self.posicion:self.posicion + 2] == '/*':
-            # Comentario de bloque
-            self.posicion += 2
+            return
+        
+        elif siguiente == '*':  # Comentario de bloque
+            self.posicion += 2  # Saltar '/*'
             self.columna += 2
-
+            
+            # Buscar el cierre '*/'
             while self.posicion < len(self.codigo) - 1:
-                if self.codigo[self.posicion] == '\n':
-                    self.linea += 1
-                    self.columna = 1
-                    self.posicion += 1
-                    continue
-
-                if self.codigo[self.posicion:self.posicion + 2] == '*/':
-                    self.posicion += 2
+                if self.codigo[self.posicion] == '*' and self.posicion + 1 < len(self.codigo) and self.codigo[self.posicion + 1] == '/':
+                    # Encontramos el cierre
+                    self.posicion += 2  # Saltar '*/'
                     self.columna += 2
                     lexema = self.codigo[inicio:self.posicion]
                     self.tokens.append(Token(lexema, 'COMENTARIO_BLOQUE', self.linea, col_inicio))
                     return
-
+                
+                if self.codigo[self.posicion] == '\n':
+                    self.linea += 1
+                    self.columna = 1
+                else:
+                    self.columna += 1
+                
                 self.posicion += 1
-                self.columna += 1
-
-            # Si se termina el archivo sin encontrar cierre
-            self._error_lexico("Comentario de bloque sin cerrar")
-
-        else:
-            # No es comentario, probablemente sea operador "/"
-            self._analizar_operador()
-
+            
+            # Si llegamos aquí, no se encontró el cierre
+            self.tokens.append(Token(
+                f"ERROR: Comentario de bloque sin cerrar",
+                'ERROR_LEXICO',
+                self.linea,
+                col_inicio
+            ))
+            # Importante: avanzar hasta el final para no procesar el contenido como tokens
+            self.posicion = len(self.codigo)
 
     def _error_lexico(self, mensaje: str):
         """
