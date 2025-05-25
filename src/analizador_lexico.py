@@ -144,11 +144,8 @@ class AnalizadorLexico:
         elif char == '/' and self.posicion + 1 < len(self.codigo):
             if self.codigo[self.posicion + 1] in ['/', '*']:
                 self._analizar_comentario()
-                return
             else:
                 self._analizar_operador()
-                return
-
         
         # Caracteres no reconocidos
         else:
@@ -211,25 +208,54 @@ class AnalizadorLexico:
 
     def _analizar_operador(self):
         """
-        Implementa el AFD para operadores.
+        Implementa el AFD para operadores, incluyendo detección de operadores inválidos.
         """
         inicio = self.posicion
         col_inicio = self.columna
         
-        # Operadores de dos caracteres
+        # Verificar operadores inválidos de dos o más caracteres
         if self.posicion + 1 < len(self.codigo):
             op_doble = self.codigo[self.posicion:self.posicion + 2]
-            if op_doble in ['==', '!=', '<=', '>=', '&&', '||', '++', '--']:
+            op_triple = self.codigo[self.posicion:self.posicion + 3] if self.posicion + 2 < len(self.codigo) else ''
+            
+            # Detectar operadores mal escritos
+            if op_doble == '=<':
+                self._error_lexico("Operador inválido '=<', ¿querías decir '<='?")
                 self.posicion += 2
                 self.columna += 2
+                return
+            
+            # Detectar operadores juntos inválidos
+            elif op_doble == '+*' or op_doble == '*+' or op_doble == '+-' or op_doble == '-+':
+                self._error_lexico(f"Operadores juntos inválidos '{op_doble}'")
+                self.posicion += 2
+                self.columna += 2
+                return
+            
+            # Detectar operador >>> que no existe en Kotlin
+            elif op_triple == '>>>':
+                self._error_lexico("Operador '>>>' no existe en Kotlin")
+                self.posicion += 3
+                self.columna += 3
+                return
+            
+            # Operadores válidos de dos caracteres
+            elif op_doble in ['==', '!=', '<=', '>=', '&&', '||', '++', '--']:
                 self.tokens.append(Token(op_doble, 'OPERADOR', self.linea, col_inicio))
+                self.posicion += 2
+                self.columna += 2
                 return
         
         # Operadores de un carácter
         op_simple = self.codigo[self.posicion]
-        self.posicion += 1
-        self.columna += 1
-        self.tokens.append(Token(op_simple, 'OPERADOR', self.linea, col_inicio))
+        if op_simple in self.operadores:
+            self.tokens.append(Token(op_simple, 'OPERADOR', self.linea, col_inicio))
+            self.posicion += 1
+            self.columna += 1
+        else:
+            self._error_lexico(f"Operador inválido '{op_simple}'")
+            self.posicion += 1
+            self.columna += 1
 
     def _analizar_delimitador(self):
         """
